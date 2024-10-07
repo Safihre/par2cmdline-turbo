@@ -17,15 +17,18 @@
 //  along with this program; if not, write to the Free Software
 //  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+
 #include "libpar2internal.h"
 
 #include <codecvt>
-#include <iostream>
+#include <locale>
 #include <cstring>
+#include <iostream>
 #include <exception>
-#include "utf8.h"
 
-namespace utf8
+#include <par2/utf8.h>
+
+namespace Par2
 {
   constexpr int MAX_ARGS = 128;
   static std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> UTF8_CONVERTER;
