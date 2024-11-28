@@ -20,8 +20,6 @@
 
 #include "libpar2internal.h"
 
-#include <codecvt>
-#include <locale>
 #include <cstring>
 #include <iostream>
 #include <exception>
@@ -30,21 +28,54 @@
 
 namespace Par2
 {
-  constexpr int MAX_ARGS = 128;
-  static std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> UTF8_CONVERTER;
-
-  std::wstring Utf8ToWide(const std::string& str)
+  std::optional<std::wstring> Utf8ToWide(const std::string& str)
   {
-    if (str.empty()) return std::wstring();
+    if (str.empty()) return L"";
 
-    return UTF8_CONVERTER.from_bytes(str.c_str());
+    try
+    {
+      return UTF8_CONVERTER.from_bytes(str.c_str());
+    }
+    catch (const std::exception& e)
+    {
+      return std::nullopt;
+    }
   }
 
-  std::string WideToUtf8(const std::wstring& str)
+  std::optional<std::string> WideToUtf8(const std::wstring& str)
   {
-    if (str.empty()) return std::string();
+    if (str.empty()) return "";
 
-    return UTF8_CONVERTER.to_bytes(str.c_str());
+    try
+    {
+      return UTF8_CONVERTER.to_bytes(str.c_str());
+    }
+    catch (const std::exception& e)
+    {
+      return std::nullopt;
+    }
+  }
+
+  std::string Latin1ToUtf8(const std::string& latin1Str)
+  {
+    if (latin1Str.empty()) return "";
+
+    std::string utf8Str;
+    utf8Str.reserve(latin1Str.length() * 2);
+
+    for (unsigned char ch : latin1Str)
+    {
+      if (ch < 128)
+      {
+        utf8Str.push_back(ch);
+      }
+      else
+      {
+        utf8Str.push_back(0xc2 + (ch > 0xbf));
+        utf8Str.push_back((ch & 0x3f) + 0x80);
+      }
+    }
+    return utf8Str;
   }
 
   WideToUtf8ArgsAdapter::WideToUtf8ArgsAdapter(int argc, wchar_t* wargv[]) noexcept(false)
@@ -77,10 +108,16 @@ namespace Par2
         continue;
       }
 
-      std::string arg = WideToUtf8(wargv[i]);
-      size_t size = arg.size() + 1;
+      auto arg = WideToUtf8(wargv[i]);
+      if (!arg.has_value())
+      {
+        std::wcerr << L"Failed to convert " << wargv[i] << L" to UTF-8 string. Skipping" << std::endl;
+        continue;
+      }
+
+      size_t size = arg->size() + 1;
       m_argv[i] = new char[size];
-      std::strcpy(m_argv[i], arg.c_str());
+      std::strcpy(m_argv[i], arg->c_str());
     }
     m_argv[m_argc] = nullptr;
   }
